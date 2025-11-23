@@ -5,29 +5,36 @@ const SalesFunnel = () => {
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: '' });
 
   // Datos del funnel por fuente de tráfico con variabilidad realista
+  // Orgánico: menor volumen pero mejor calidad de conversión
+  // Facebook: alto volumen pero conversión media-baja
+  // Instagram: volumen medio, conversión baja
+  // Google Ads: volumen medio, conversión media-alta
   const funnelData = [
     {
+      stage: 'Website Visits',
       sources: [
-        { name: 'Facebook', value: 5200, color: '#FF9D3D' },
-        { name: 'Instagram', value: 2800, color: '#FFB366' },
-        { name: 'Google Ads', value: 1900, color: '#FFC699' },
-        { name: 'Organic', value: 800, color: '#FFE0CC' }
+        { name: 'Facebook', value: 8500, color: '#FF9D3D' },
+        { name: 'Instagram', value: 4200, color: '#FFB366' },
+        { name: 'Google Ads', value: 2800, color: '#FFC699' },
+        { name: 'Organic', value: 1200, color: '#FFE0CC' }
       ]
     },
     {
+      stage: 'Prospective Purchasers',
       sources: [
-        { name: 'Facebook', value: 2650, color: '#FF9D3D' },
-        { name: 'Instagram', value: 1120, color: '#FFB366' },
-        { name: 'Google Ads', value: 665, color: '#FFC699' },
-        { name: 'Organic', value: 320, color: '#FFE0CC' }
+        { name: 'Facebook', value: 3400, color: '#FF9D3D' },    // 40% conversion
+        { name: 'Instagram', value: 1260, color: '#FFB366' },   // 30% conversion  
+        { name: 'Google Ads', value: 1820, color: '#FFC699' },  // 65% conversion
+        { name: 'Organic', value: 960, color: '#FFE0CC' }       // 80% conversion - ¡Mejor!
       ]
     },
     {
+      stage: 'Total Interest Score',
       sources: [
-        { name: 'Facebook', value: 1060, color: '#FF9D3D' },
-        { name: 'Instagram', value: 336, color: '#FFB366' },
-        { name: 'Google Ads', value: 200, color: '#FFC699' },
-        { name: 'Organic', value: 96, color: '#FFE0CC' }
+        { name: 'Facebook', value: 680, color: '#FF9D3D' },     // 20% de interesados
+        { name: 'Instagram', value: 190, color: '#FFB366' },    // 15% de interesados
+        { name: 'Google Ads', value: 546, color: '#FFC699' },   // 30% de interesados
+        { name: 'Organic', value: 432, color: '#FFE0CC' }       // 45% de interesados - ¡Mejor!
       ]
     }
   ];
@@ -39,7 +46,7 @@ const SalesFunnel = () => {
 
   // SVG para renderizar el funnel
   const renderFunnel = () => {
-    const svgWidth = 1300; // Aumentado significativamente para evitar cortes
+    const svgWidth = 1200; // Tamaño ajustado
     const svgHeight = 400;
     const maxWidth = 700;
     const startY = 20;
@@ -86,7 +93,7 @@ const SalesFunnel = () => {
                     
                     // Calcular porcentajes y datos para tooltip
                     const percentage = ((source.value / total) * 100).toFixed(1);
-                    const stageNames = ['Web Page Visits', 'Interested users', 'Total Intent Score'];
+                    const stageNames = ['Website Visits', 'Prospective Purchasers', 'Total Interest Score'];
                     const conversionRate = stageIdx > 0 
                       ? ((source.value / funnelData[stageIdx - 1].sources[sourceIdx].value) * 100).toFixed(1)
                       : null;
@@ -127,7 +134,24 @@ const SalesFunnel = () => {
                       }
                     };
 
-                    const polygon = (
+                    // Para el último stage (Total Interest Score), usar rectángulo
+                    const shape = stageIdx === 2 ? (
+                      <rect
+                        key={`segment-${stageIdx}-${sourceIdx}`}
+                        x={segX}
+                        y={y}
+                        width={segmentWidth}
+                        height={stageHeight}
+                        fill={source.color}
+                        opacity={opacity}
+                        onMouseEnter={handleMouseEnter}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseMove={handleMouseMove}
+                        className="cursor-pointer transition-opacity duration-200"
+                        stroke="#1F2937"
+                        strokeWidth="2"
+                      />
+                    ) : (
                       <polygon
                         key={`segment-${stageIdx}-${sourceIdx}`}
                         points={`${segX},${y} ${segX + segmentWidth},${y} ${nextSegXPos + nextSegW},${y + stageHeight} ${nextSegXPos},${y + stageHeight}`}
@@ -146,7 +170,7 @@ const SalesFunnel = () => {
                     currentSegX += segmentWidth;
                     nextSegX += nextSegW;
                     
-                    return polygon;
+                    return shape;
               })}
 
               {/* Las líneas divisoras ya no son necesarias ya que los polígonos tienen bordes */}
@@ -178,12 +202,12 @@ const SalesFunnel = () => {
         </text>
 
         {/* Leyendas alineadas con cada bloque */}
-        {['Web Page Visits', 'Interested users', 'Total Intent Score'].map((label, idx) => {
+        {['Website Visits', 'Prospective Purchasers', 'Total Interest Score'].map((label, idx) => {
           const labelY = startY + idx * stageHeight + stageHeight / 2;
           return (
             <text 
               key={`label-${idx}`}
-              x={svgWidth - 180} 
+              x={svgWidth - 220} 
               y={labelY + 5} 
               fontSize="16" 
               fill="#E0E0E0" 
@@ -201,7 +225,7 @@ const SalesFunnel = () => {
   return (
     <div className="w-full bg-gray-900 p-8 rounded-lg min-h-screen relative">
       <h1 className="text-3xl font-bold text-center mb-8 text-gray-200">
-        The Purchase Funnel
+        Marketing Funnel Analysis
       </h1>
       
       {/* Tooltip */}
@@ -253,7 +277,7 @@ const SalesFunnel = () => {
             </tr>
           </thead>
           <tbody>
-            {['Web Page Visits', 'Interested users', 'Total Intent Score'].map((stageName, idx) => (
+            {['Website Visits', 'Prospective Purchasers', 'Total Interest Score'].map((stageName, idx) => (
               <tr key={idx} className="border-b border-gray-700 hover:bg-gray-700 transition-colors">
                 <td className="px-4 py-3 font-medium text-gray-300">{stageName}</td>
                 {funnelData[idx].sources.map((source, srcIdx) => (
@@ -268,6 +292,37 @@ const SalesFunnel = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Key Insights */}
+      <div className="mt-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h3 className="text-xl font-bold text-gray-200 mb-4">📊 Key Insights</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-green-400 mb-2">🎯 Organic Traffic Quality</h4>
+            <p className="text-gray-300">
+              Despite lowest volume (1,200 visits), organic traffic shows <strong>80% conversion to prospects</strong> and <strong>highest interest score</strong> - the highest quality traffic.
+            </p>
+          </div>
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-blue-400 mb-2">💰 Google Ads Efficiency</h4>
+            <p className="text-gray-300">
+              Google Ads delivers <strong>65% prospect conversion</strong> and <strong>strong interest scores</strong> from prospects - strong ROI for paid traffic.
+            </p>
+          </div>
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-orange-400 mb-2">📱 Social Media Volume</h4>
+            <p className="text-gray-300">
+              Facebook brings highest volume (8,500 visits) but lower conversion rates. Instagram shows potential for improvement.
+            </p>
+          </div>
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-purple-400 mb-2">🚀 Optimization Opportunity</h4>
+            <p className="text-gray-300">
+              Focus on <strong>scaling organic content</strong> and <strong>improving social media quality</strong> to maximize interest scores.
+            </p>
+          </div>
+        </div>
       </div>
       
       <style jsx>{`
