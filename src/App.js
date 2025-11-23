@@ -117,7 +117,7 @@ const App = () => {
     <div className="min-h-screen bg-gray-900">
       {/* Navigation */}
       <nav className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-7xl mx-auto flex justify-center gap-8">
+        <div className="max-w-7xl mx-auto flex justify-center">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveView('funnel')}
@@ -140,18 +140,6 @@ const App = () => {
               User Journey
             </button>
           </div>
-          
-          {/* Export Button */}
-          <button
-            onClick={exportToHTML}
-            className="px-6 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-2"
-            title="Export both charts as standalone HTML file"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export HTML
-          </button>
         </div>
       </nav>
 
