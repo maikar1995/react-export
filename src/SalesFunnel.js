@@ -227,6 +227,37 @@ const SalesFunnel = () => {
       <h1 className="text-3xl font-bold text-center mb-8 text-gray-200">
         Marketing Funnel Analysis
       </h1>
+
+      {/* Key Insights */}
+      <div className="mb-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h3 className="text-xl font-bold text-gray-200 mb-4">📊 Key Insights</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-green-400 mb-2">🎯 Organic Traffic Quality</h4>
+            <p className="text-gray-300">
+              Despite lowest volume (1,200 visits), organic traffic shows <strong>80% conversion to prospects</strong> and <strong>highest interest score</strong> - the highest quality traffic.
+            </p>
+          </div>
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-blue-400 mb-2">💰 Google Ads Efficiency</h4>
+            <p className="text-gray-300">
+              Google Ads delivers <strong>65% prospect conversion</strong> and <strong>strong interest scores</strong> from prospects - strong ROI for paid traffic.
+            </p>
+          </div>
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-orange-400 mb-2">📱 Social Media Volume</h4>
+            <p className="text-gray-300">
+              Facebook brings highest volume (8,500 visits) but lower conversion rates. Instagram shows potential for improvement.
+            </p>
+          </div>
+          <div className="bg-gray-700 rounded-md p-4">
+            <h4 className="font-semibold text-purple-400 mb-2">🚀 Optimization Opportunity</h4>
+            <p className="text-gray-300">
+              Focus on <strong>scaling organic content</strong> and <strong>improving social media quality</strong> to maximize interest scores.
+            </p>
+          </div>
+        </div>
+      </div>
       
       {/* Tooltip */}
       {tooltip.show && (
@@ -294,36 +325,7 @@ const SalesFunnel = () => {
         </table>
       </div>
 
-      {/* Key Insights */}
-      <div className="mt-8 bg-gray-800 rounded-lg p-6 border border-gray-700">
-        <h3 className="text-xl font-bold text-gray-200 mb-4">📊 Key Insights</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="bg-gray-700 rounded-md p-4">
-            <h4 className="font-semibold text-green-400 mb-2">🎯 Organic Traffic Quality</h4>
-            <p className="text-gray-300">
-              Despite lowest volume (1,200 visits), organic traffic shows <strong>80% conversion to prospects</strong> and <strong>highest interest score</strong> - the highest quality traffic.
-            </p>
-          </div>
-          <div className="bg-gray-700 rounded-md p-4">
-            <h4 className="font-semibold text-blue-400 mb-2">💰 Google Ads Efficiency</h4>
-            <p className="text-gray-300">
-              Google Ads delivers <strong>65% prospect conversion</strong> and <strong>strong interest scores</strong> from prospects - strong ROI for paid traffic.
-            </p>
-          </div>
-          <div className="bg-gray-700 rounded-md p-4">
-            <h4 className="font-semibold text-orange-400 mb-2">📱 Social Media Volume</h4>
-            <p className="text-gray-300">
-              Facebook brings highest volume (8,500 visits) but lower conversion rates. Instagram shows potential for improvement.
-            </p>
-          </div>
-          <div className="bg-gray-700 rounded-md p-4">
-            <h4 className="font-semibold text-purple-400 mb-2">🚀 Optimization Opportunity</h4>
-            <p className="text-gray-300">
-              Focus on <strong>scaling organic content</strong> and <strong>improving social media quality</strong> to maximize interest scores.
-            </p>
-          </div>
-        </div>
-      </div>
+
       
       <style jsx>{`
         .tooltip {
