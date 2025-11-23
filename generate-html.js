@@ -1,0 +1,795 @@
+const fs = require('fs');
+const path = require('path');
+
+const generateStandaloneHTML = () => {
+  console.log('🔄 Reading component files...');
+  
+  // En lugar de extraer código, usar el contenido completo ya probado
+  const salesFunnelCode = `const SalesFunnel = () => {
+    const [hoveredSegment, setHoveredSegment] = useState(null);
+    const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: '' });
+
+    const funnelData = [
+      {
+        sources: [
+          { name: 'Facebook', value: 5200, color: '#FF9D3D' },
+          { name: 'Instagram', value: 2800, color: '#FFB366' },
+          { name: 'Google Ads', value: 1900, color: '#FFC699' },
+          { name: 'Organic', value: 800, color: '#FFE0CC' }
+        ]
+      },
+      {
+        sources: [
+          { name: 'Facebook', value: 2650, color: '#FF9D3D' },
+          { name: 'Instagram', value: 1120, color: '#FFB366' },
+          { name: 'Google Ads', value: 665, color: '#FFC699' },
+          { name: 'Organic', value: 320, color: '#FFE0CC' }
+        ]
+      },
+      {
+        sources: [
+          { name: 'Facebook', value: 1060, color: '#FF9D3D' },
+          { name: 'Instagram', value: 336, color: '#FFB366' },
+          { name: 'Google Ads', value: 200, color: '#FFC699' },
+          { name: 'Organic', value: 96, color: '#FFE0CC' }
+        ]
+      }
+    ];
+
+    const stageWidths = funnelData.map(stage => ({
+      total: stage.sources.reduce((sum, source) => sum + source.value, 0)
+    }));
+
+    const renderFunnel = () => {
+      const svgWidth = 1300;
+      const svgHeight = 400;
+      const maxWidth = 700;
+      const startY = 20;
+      const stageHeight = 110;
+
+      return React.createElement('svg', {
+        width: svgWidth,
+        height: svgHeight,
+        className: "mx-auto",
+        viewBox: \`0 0 \${svgWidth} \${svgHeight}\`
+      }, [
+        ...funnelData.map((stage, stageIdx) => {
+          const total = stageWidths[stageIdx].total;
+          const maxTotal = Math.max(...stageWidths.map(s => s.total));
+          
+          const widthRatio = total / maxTotal;
+          const currentWidth = maxWidth * widthRatio;
+          const x = (svgWidth - currentWidth) / 2;
+          const y = startY + stageIdx * stageHeight;
+
+          const nextWidth = stageIdx < funnelData.length - 1 
+            ? maxWidth * (stageWidths[stageIdx + 1].total / maxTotal)
+            : maxWidth * 0.15;
+          const nextX = (svgWidth - nextWidth) / 2;
+
+          let currentSegX = x;
+          let nextSegX = nextX;
+
+          return React.createElement('g', { key: stageIdx }, [
+            ...stage.sources.map((source, sourceIdx) => {
+              const segmentWidth = (source.value / total) * currentWidth;
+              
+              const nextSegW = stageIdx < funnelData.length - 1 
+                ? (funnelData[stageIdx + 1].sources[sourceIdx].value / stageWidths[stageIdx + 1].total) * nextWidth
+                : (source.value / total) * nextWidth;
+              
+              const segX = currentSegX;
+              const nextSegXPos = nextSegX;
+              
+              const isHovered = hoveredSegment === \`\${stageIdx}-\${sourceIdx}\`;
+              const opacity = isHovered ? 1 : 0.85;
+              
+              const percentage = ((source.value / total) * 100).toFixed(1);
+              const stageNames = ['Web Page Visits', 'Interested users', 'Total Intent Score'];
+              const conversionRate = stageIdx > 0 
+                ? ((source.value / funnelData[stageIdx - 1].sources[sourceIdx].value) * 100).toFixed(1)
+                : null;
+
+              const handleMouseEnter = (e) => {
+                setHoveredSegment(\`\${stageIdx}-\${sourceIdx}\`);
+                const tooltipContent = \`
+                  <div class="bg-gray-800 text-white p-3 rounded-lg shadow-lg border border-gray-600">
+                    <div class="font-semibold text-lg mb-2">\${source.name}</div>
+                    <div class="text-sm space-y-1">
+                      <div><span class="text-gray-300">Stage:</span> \${stageNames[stageIdx]}</div>
+                      <div><span class="text-gray-300">Value:</span> <span class="font-semibold">\${source.value.toLocaleString()}</span></div>
+                      <div><span class="text-gray-300">% of Stage:</span> <span class="font-semibold">\${percentage}%</span></div>
+                      \${conversionRate ? \`<div><span class="text-gray-300">Conversion:</span> <span class="font-semibold">\${conversionRate}%</span></div>\` : ''}
+                    </div>
+                  </div>
+                \`;
+                setTooltip({
+                  show: true,
+                  x: e.clientX + 10,
+                  y: e.clientY - 10,
+                  content: tooltipContent
+                });
+              };
+
+              const handleMouseLeave = () => {
+                setHoveredSegment(null);
+                setTooltip({ show: false, x: 0, y: 0, content: '' });
+              };
+
+              const handleMouseMove = (e) => {
+                if (isHovered) {
+                  setTooltip(prev => ({
+                    ...prev,
+                    x: e.clientX + 10,
+                    y: e.clientY - 10
+                  }));
+                }
+              };
+
+              const polygon = React.createElement('polygon', {
+                key: \`segment-\${stageIdx}-\${sourceIdx}\`,
+                points: \`\${segX},\${y} \${segX + segmentWidth},\${y} \${nextSegXPos + nextSegW},\${y + stageHeight} \${nextSegXPos},\${y + stageHeight}\`,
+                fill: source.color,
+                opacity: opacity,
+                onMouseEnter: handleMouseEnter,
+                onMouseLeave: handleMouseLeave,
+                onMouseMove: handleMouseMove,
+                className: "cursor-pointer transition-opacity duration-200",
+                stroke: "#1F2937",
+                strokeWidth: "2"
+              });
+              
+              currentSegX += segmentWidth;
+              nextSegX += nextSegW;
+              
+              return polygon;
+            }),
+            React.createElement('text', {
+              key: \`total-\${stageIdx}\`,
+              x: x - 50,
+              y: y + stageHeight / 2 + 8,
+              textAnchor: "end",
+              fontSize: "20",
+              fill: "#FFFFFF",
+              fontWeight: "700"
+            }, total.toLocaleString())
+          ]);
+        }),
+        React.createElement('text', { x: "15", y: "95", fontSize: "13", fill: "#B0B0B0", fontStyle: "italic", fontWeight: "500" }, "Number of"),
+        React.createElement('text', { x: "15", y: "115", fontSize: "13", fill: "#B0B0B0", fontStyle: "italic", fontWeight: "500" }, "prospective"),
+        React.createElement('text', { x: "15", y: "135", fontSize: "13", fill: "#B0B0B0", fontStyle: "italic", fontWeight: "500" }, "purchasers"),
+        ...['Web Page Visits', 'Interested users', 'Total Intent Score'].map((label, idx) => {
+          const labelY = startY + idx * stageHeight + stageHeight / 2;
+          return React.createElement('text', {
+            key: \`label-\${idx}\`,
+            x: svgWidth - 180,
+            y: labelY + 5,
+            fontSize: "16",
+            fill: "#E0E0E0",
+            fontWeight: "700",
+            textAnchor: "start"
+          }, label);
+        })
+      ]);
+    };
+
+    return React.createElement('div', { className: "w-full bg-gray-900 p-8 rounded-lg min-h-screen relative" }, [
+      React.createElement('h1', { 
+        key: "title",
+        className: "text-3xl font-bold text-center mb-8 text-gray-200" 
+      }, "The Purchase Funnel"),
+      
+      tooltip.show && React.createElement('div', {
+        key: "tooltip",
+        className: "fixed pointer-events-none z-50",
+        style: { left: tooltip.x, top: tooltip.y },
+        dangerouslySetInnerHTML: { __html: tooltip.content }
+      }),
+
+      React.createElement('div', { 
+        key: "content",
+        className: "bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-700" 
+      }, [
+        React.createElement('div', { 
+          key: "legend",
+          className: "flex justify-center gap-12 mb-8" 
+        }, [
+          { name: 'Facebook', color: '#FF9D3D' },
+          { name: 'Instagram', color: '#FFB366' },
+          { name: 'Google Ads', color: '#FFC699' },
+          { name: 'Organic', color: '#FFE0CC' }
+        ].map(source => 
+          React.createElement('div', { 
+            key: source.name,
+            className: "flex items-center gap-2" 
+          }, [
+            React.createElement('div', {
+              key: "color",
+              className: "w-4 h-4 rounded",
+              style: { backgroundColor: source.color }
+            }),
+            React.createElement('span', {
+              key: "name",
+              className: "text-sm font-medium text-gray-300"
+            }, source.name)
+          ])
+        )),
+        renderFunnel()
+      ]),
+
+      React.createElement('div', { 
+        key: "table",
+        className: "mt-8 overflow-x-auto" 
+      }, 
+        React.createElement('table', { className: "w-full text-sm bg-gray-800 rounded-lg shadow-2xl border border-gray-700" }, [
+          React.createElement('thead', { 
+            key: "thead",
+            className: "bg-gray-700 border-b border-gray-600" 
+          }, 
+            React.createElement('tr', { key: "header-row" }, [
+              React.createElement('th', { key: "stage", className: "px-4 py-3 text-left font-semibold text-gray-300" }, "Stage"),
+              React.createElement('th', { key: "facebook", className: "px-4 py-3 text-center font-semibold text-gray-300" }, "Facebook"),
+              React.createElement('th', { key: "instagram", className: "px-4 py-3 text-center font-semibold text-gray-300" }, "Instagram"),
+              React.createElement('th', { key: "googleads", className: "px-4 py-3 text-center font-semibold text-gray-300" }, "Google Ads"),
+              React.createElement('th', { key: "organic", className: "px-4 py-3 text-center font-semibold text-gray-300" }, "Organic"),
+              React.createElement('th', { key: "total", className: "px-4 py-3 text-center font-semibold text-gray-300" }, "Total")
+            ])
+          ),
+          React.createElement('tbody', { key: "tbody" }, 
+            ['Web Page Visits', 'Interested users', 'Total Intent Score'].map((stageName, idx) =>
+              React.createElement('tr', { 
+                key: idx,
+                className: "border-b border-gray-700 hover:bg-gray-700 transition-colors" 
+              }, [
+                React.createElement('td', { 
+                  key: "stage-name",
+                  className: "px-4 py-3 font-medium text-gray-300" 
+                }, stageName),
+                ...funnelData[idx].sources.map((source, srcIdx) =>
+                  React.createElement('td', { 
+                    key: srcIdx,
+                    className: "px-4 py-3 text-center text-gray-400" 
+                  }, source.value)
+                ),
+                React.createElement('td', { 
+                  key: "total-val",
+                  className: "px-4 py-3 text-center font-semibold text-gray-200" 
+                }, funnelData[idx].sources.reduce((sum, src) => sum + src.value, 0))
+              ])
+            )
+          )
+        ])
+      )
+    ]);
+  };`;
+
+  const userJourneyCode = `const UserJourney = () => {
+    const [hoveredNode, setHoveredNode] = useState(null);
+    const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: '' });
+
+    const sources = [
+      { name: 'Facebook', color: '#FF9D3D' },
+      { name: 'Instagram', color: '#FFB366' },
+      { name: 'Google Ads', color: '#FFC699' },
+      { name: 'Direct', color: '#FFE0CC' }
+    ];
+
+    const journeyData = {
+      visit1_to_visit2: [
+        { from: 'Facebook', to: 'Facebook', value: 800 },
+        { from: 'Facebook', to: 'Instagram', value: 400 },
+        { from: 'Facebook', to: 'Google Ads', value: 300 },
+        { from: 'Facebook', to: 'Direct', value: 200 },
+        
+        { from: 'Instagram', to: 'Instagram', value: 600 },
+        { from: 'Instagram', to: 'Facebook', value: 300 },
+        { from: 'Instagram', to: 'Direct', value: 200 },
+        { from: 'Instagram', to: 'Google Ads', value: 100 },
+        
+        { from: 'Google Ads', to: 'Google Ads', value: 450 },
+        { from: 'Google Ads', to: 'Direct', value: 300 },
+        { from: 'Google Ads', to: 'Facebook', value: 200 },
+        { from: 'Google Ads', to: 'Instagram', value: 100 },
+        
+        { from: 'Direct', to: 'Direct', value: 350 },
+        { from: 'Direct', to: 'Facebook', value: 200 },
+        { from: 'Direct', to: 'Instagram', value: 150 },
+        { from: 'Direct', to: 'Google Ads', value: 100 }
+      ],
+      
+      visit2_to_visit3: [
+        { from: 'Facebook', to: 'Facebook', value: 600 },
+        { from: 'Facebook', to: 'Instagram', value: 350 },
+        { from: 'Facebook', to: 'Google Ads', value: 200 },
+        { from: 'Facebook', to: 'Direct', value: 150 },
+        
+        { from: 'Instagram', to: 'Instagram', value: 450 },
+        { from: 'Instagram', to: 'Facebook', value: 200 },
+        { from: 'Instagram', to: 'Direct', value: 200 },
+        { from: 'Instagram', to: 'Google Ads', value: 100 },
+        
+        { from: 'Google Ads', to: 'Google Ads', value: 300 },
+        { from: 'Google Ads', to: 'Direct', value: 200 },
+        { from: 'Google Ads', to: 'Facebook', value: 150 },
+        { from: 'Google Ads', to: 'Instagram', value: 75 },
+        
+        { from: 'Direct', to: 'Direct', value: 250 },
+        { from: 'Direct', to: 'Facebook', value: 120 },
+        { from: 'Direct', to: 'Instagram', value: 100 },
+        { from: 'Direct', to: 'Google Ads', value: 50 }
+      ],
+      
+      visit3_to_visit4: [
+        { from: 'Facebook', to: 'Facebook', value: 400 },
+        { from: 'Facebook', to: 'Instagram', value: 200 },
+        { from: 'Facebook', to: 'Direct', value: 150 },
+        { from: 'Facebook', to: 'Google Ads', value: 100 },
+        
+        { from: 'Instagram', to: 'Instagram', value: 300 },
+        { from: 'Instagram', to: 'Facebook', value: 150 },
+        { from: 'Instagram', to: 'Direct', value: 120 },
+        { from: 'Instagram', to: 'Google Ads', value: 80 },
+        
+        { from: 'Google Ads', to: 'Google Ads', value: 180 },
+        { from: 'Google Ads', to: 'Direct', value: 120 },
+        { from: 'Google Ads', to: 'Facebook', value: 80 },
+        { from: 'Google Ads', to: 'Instagram', value: 50 },
+        
+        { from: 'Direct', to: 'Direct', value: 200 },
+        { from: 'Direct', to: 'Facebook', value: 80 },
+        { from: 'Direct', to: 'Instagram', value: 60 },
+        { from: 'Direct', to: 'Google Ads', value: 40 }
+      ]
+    };
+
+    // Calculate totals
+    const totals = { visit1: {}, visit2: {}, visit3: {}, visit4: {} };
+    
+    sources.forEach(source => {
+      totals.visit1[source.name] = journeyData.visit1_to_visit2
+        .filter(flow => flow.from === source.name)
+        .reduce((sum, flow) => sum + flow.value, 0);
+      
+      totals.visit2[source.name] = journeyData.visit1_to_visit2
+        .filter(flow => flow.to === source.name)
+        .reduce((sum, flow) => sum + flow.value, 0);
+      
+      totals.visit3[source.name] = journeyData.visit2_to_visit3
+        .filter(flow => flow.to === source.name)
+        .reduce((sum, flow) => sum + flow.value, 0);
+      
+      totals.visit4[source.name] = journeyData.visit3_to_visit4
+        .filter(flow => flow.to === source.name)
+        .reduce((sum, flow) => sum + flow.value, 0);
+    });
+
+    const findJourneysForNode = (visitIndex, sourceName) => {
+      const journeys = [];
+      
+      if (visitIndex === 0) {
+        const visit1Flows = journeyData.visit1_to_visit2.filter(f => f.from === sourceName);
+        visit1Flows.forEach(flow1 => {
+          const visit2Flows = journeyData.visit2_to_visit3.filter(f => f.from === flow1.to);
+          visit2Flows.forEach(flow2 => {
+            const visit3Flows = journeyData.visit3_to_visit4.filter(f => f.from === flow2.to);
+            visit3Flows.forEach(flow3 => {
+              journeys.push([
+                { source: sourceName },
+                { source: flow1.to },
+                { source: flow2.to },
+                { source: flow3.to }
+              ]);
+            });
+          });
+        });
+      }
+      
+      return journeys;
+    };
+
+    const svgWidth = 1400;
+    const svgHeight = 1000;
+    const visitWidth = 140;
+    const visitSpacing = 280;
+    const visits = ['visit1', 'visit2', 'visit3', 'visit4'];
+
+    const topMargin = 120;
+    const bottomMargin = 80;
+    const availableHeight = svgHeight - topMargin - bottomMargin;
+    const minNodeHeight = 80;
+    const minGap = 25;
+    const totalGaps = minGap * (sources.length - 1);
+    const heightForNodes = availableHeight - totalGaps;
+    
+    const globalMaxValue = Math.max(
+      ...['visit1', 'visit2', 'visit3', 'visit4'].flatMap(visit =>
+        sources.map(s => totals[visit][s.name] || 0)
+      )
+    );
+    
+    const columnScales = ['visit1', 'visit2', 'visit3', 'visit4'].map(visit => {
+      const sourceValues = sources.map(s => totals[visit][s.name] || 0);
+      const pureHeights = sourceValues.map(v => v === 0 ? 0 : Math.max(minNodeHeight, (v / globalMaxValue) * heightForNodes * 1.2));
+      const totalHeight = pureHeights.reduce((sum, h) => sum + h, 0);
+      return { visit, totalHeight, pureHeights };
+    });
+    
+    const maxTotalHeight = Math.max(...columnScales.map(col => col.totalHeight));
+    const reductionFactor = maxTotalHeight > heightForNodes ? heightForNodes / maxTotalHeight : 1.0;
+    
+    const getNodePosition = (visitIndex, sourceIndex, value) => {
+      const x = 200 + visitIndex * visitSpacing;
+      const columnScale = columnScales[visitIndex];
+      const adjustedHeights = columnScale.pureHeights.map(h => h * reductionFactor);
+      
+      let y = topMargin;
+      for (let i = 0; i < sourceIndex; i++) {
+        y += adjustedHeights[i] + minGap;
+      }
+      
+      return { x, y, height: adjustedHeights[sourceIndex] };
+    };
+
+    const renderFlows = (flows, fromVisitIndex, toVisitIndex) => {
+      return flows.map((flow, index) => {
+        const fromSourceIndex = sources.findIndex(s => s.name === flow.from);
+        const toSourceIndex = sources.findIndex(s => s.name === flow.to);
+        
+        const fromPos = getNodePosition(fromVisitIndex, fromSourceIndex, totals[visits[fromVisitIndex]][flow.from]);
+        const toPos = getNodePosition(toVisitIndex, toSourceIndex, totals[visits[toVisitIndex]][flow.to]);
+        
+        const startX = fromPos.x + visitWidth;
+        const endX = toPos.x;
+        const startY = fromPos.y + fromPos.height / 2;
+        const endY = toPos.y + toPos.height / 2;
+        
+        const controlX1 = startX + (endX - startX) * 0.5;
+        const controlX2 = startX + (endX - startX) * 0.5;
+        
+        const pathData = \`M \${startX} \${startY} C \${controlX1} \${startY} \${controlX2} \${endY} \${endX} \${endY}\`;
+        const color = sources.find(s => s.name === flow.from)?.color || '#888';
+        
+        let flowOpacity = 0.4;
+        if (hoveredNode) {
+          const journeys = findJourneysForNode(hoveredNode.visitIndex, hoveredNode.sourceName);
+          const isInHighlightedJourney = journeys.some(journey => {
+            const fromStep = journey[fromVisitIndex];
+            const toStep = journey[toVisitIndex];
+            return fromStep && toStep && fromStep.source === flow.from && toStep.source === flow.to;
+          });
+          flowOpacity = isInHighlightedJourney ? 0.8 : 0.1;
+        }
+        
+        return React.createElement('path', {
+          key: \`flow-\${fromVisitIndex}-\${toVisitIndex}-\${index}\`,
+          d: pathData,
+          fill: 'none',
+          stroke: color,
+          strokeWidth: Math.max(2, flow.value / 50),
+          opacity: flowOpacity,
+          className: "transition-all duration-300"
+        });
+      });
+    };
+
+    return React.createElement('div', { className: "w-full bg-gray-900 p-8 rounded-lg min-h-screen relative" }, [
+      React.createElement('h1', { 
+        key: "title",
+        className: "text-3xl font-bold text-center mb-8 text-gray-200" 
+      }, "User Journey Flow"),
+      
+      tooltip.show && React.createElement('div', {
+        key: "tooltip",
+        className: "fixed pointer-events-none z-50 bg-gray-800 text-white p-3 rounded-lg shadow-lg border border-gray-600",
+        style: { left: tooltip.x, top: tooltip.y },
+        dangerouslySetInnerHTML: { __html: tooltip.content }
+      }),
+
+      React.createElement('div', { 
+        key: "content",
+        className: "bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-700" 
+      }, [
+        React.createElement('div', { 
+          key: "legend",
+          className: "flex justify-center gap-12 mb-8" 
+        }, sources.map(source => 
+          React.createElement('div', { 
+            key: source.name,
+            className: "flex items-center gap-2" 
+          }, [
+            React.createElement('div', {
+              key: "color",
+              className: "w-4 h-4 rounded",
+              style: { backgroundColor: source.color }
+            }),
+            React.createElement('span', {
+              key: "name",
+              className: "text-sm font-medium text-gray-300"
+            }, source.name)
+          ])
+        )),
+        
+        React.createElement('svg', {
+          key: "diagram",
+          width: svgWidth,
+          height: svgHeight,
+          className: "mx-auto"
+        }, [
+          // Visit labels
+          ...visits.map((visit, idx) => 
+            React.createElement('text', {
+              key: \`visit-label-\${idx}\`,
+              x: 200 + idx * visitSpacing + visitWidth / 2,
+              y: 50,
+              textAnchor: "middle",
+              fontSize: "18",
+              fill: "#E0E0E0",
+              fontWeight: "600"
+            }, \`Visit \${idx + 1}\`)
+          ),
+          
+          // Flows
+          ...renderFlows(journeyData.visit1_to_visit2, 0, 1),
+          ...renderFlows(journeyData.visit2_to_visit3, 1, 2),
+          ...renderFlows(journeyData.visit3_to_visit4, 2, 3),
+          
+          // Nodes
+          ...visits.flatMap((visit, visitIndex) => 
+            sources.map((source, sourceIndex) => {
+              const value = totals[visit][source.name] || 0;
+              if (value === 0) return null;
+              
+              const pos = getNodePosition(visitIndex, sourceIndex, value);
+              
+              let flowsToUse = [];
+              if (visitIndex === 0) {
+                flowsToUse = journeyData.visit1_to_visit2.filter(f => f.from === source.name);
+              } else if (visitIndex === 1) {
+                flowsToUse = journeyData.visit1_to_visit2.filter(f => f.to === source.name);
+              } else if (visitIndex === 2) {
+                flowsToUse = journeyData.visit2_to_visit3.filter(f => f.to === source.name);
+              } else if (visitIndex === 3) {
+                flowsToUse = journeyData.visit3_to_visit4.filter(f => f.to === source.name);
+              }
+              
+              if (flowsToUse.length === 0) {
+                return React.createElement('g', { key: \`node-\${visitIndex}-\${sourceIndex}\` }, [
+                  React.createElement('rect', {
+                    key: "rect",
+                    x: pos.x,
+                    y: pos.y,
+                    width: visitWidth,
+                    height: pos.height,
+                    fill: source.color,
+                    opacity: 0.8,
+                    rx: 4,
+                    onMouseEnter: (e) => {
+                      setHoveredNode({ visitIndex, sourceName: source.name });
+                      setTooltip({
+                        show: true,
+                        x: e.clientX + 10,
+                        y: e.clientY - 10,
+                        content: \`<div><strong>\${source.name}</strong><br/>Visit \${visitIndex + 1}<br/>Value: \${value}</div>\`
+                      });
+                    },
+                    onMouseLeave: () => {
+                      setHoveredNode(null);
+                      setTooltip({ show: false, x: 0, y: 0, content: '' });
+                    },
+                    className: "cursor-pointer transition-all duration-300"
+                  }),
+                  React.createElement('text', {
+                    key: "text",
+                    x: pos.x + visitWidth / 2,
+                    y: pos.y + pos.height / 2,
+                    textAnchor: "middle",
+                    dy: "0.35em",
+                    fontSize: "16",
+                    fill: "white",
+                    fontWeight: "600",
+                    style: { pointerEvents: 'none' }
+                  }, value)
+                ]);
+              }
+              
+              const totalFlowValue = flowsToUse.reduce((sum, f) => sum + f.value, 0);
+              const segmentGap = 2;
+              const effectiveHeight = pos.height - (segmentGap * (flowsToUse.length - 1));
+              let currentY = pos.y;
+              
+              return React.createElement('g', { key: \`node-\${visitIndex}-\${sourceIndex}\` }, [
+                ...flowsToUse.map((flow, flowIdx) => {
+                  const segmentHeight = (flow.value / totalFlowValue) * effectiveHeight;
+                  
+                  let isInHighlightedJourney = false;
+                  if (hoveredNode) {
+                    const journeys = findJourneysForNode(hoveredNode.visitIndex, hoveredNode.sourceName);
+                    isInHighlightedJourney = journeys.some(journey => {
+                      const currentStep = journey[visitIndex];
+                      if (!currentStep || currentStep.source !== source.name) return false;
+                      
+                      if (visitIndex === 0) {
+                        const nextStep = journey[visitIndex + 1];
+                        return nextStep && flow.to === nextStep.source;
+                      } else {
+                        const prevStep = journey[visitIndex - 1];
+                        return prevStep && flow.from === prevStep.source;
+                      }
+                    });
+                  }
+                  
+                  let segmentOpacity = 0.8;
+                  if (hoveredNode) {
+                    if (hoveredNode.visitIndex === visitIndex && hoveredNode.sourceName === source.name) {
+                      segmentOpacity = isInHighlightedJourney ? 1.0 : 0.4;
+                    } else if (isInHighlightedJourney) {
+                      segmentOpacity = 0.9;
+                    } else {
+                      segmentOpacity = 0.15;
+                    }
+                  }
+                  
+                  const segment = React.createElement('g', { key: \`segment-\${visitIndex}-\${sourceIndex}-\${flowIdx}\` }, [
+                    React.createElement('rect', {
+                      key: "rect",
+                      x: pos.x,
+                      y: currentY,
+                      width: visitWidth,
+                      height: segmentHeight,
+                      fill: source.color,
+                      opacity: segmentOpacity,
+                      rx: flowsToUse.length === 1 ? 4 : 1,
+                      onMouseEnter: (e) => {
+                        setHoveredNode({ visitIndex, sourceName: source.name });
+                        setTooltip({
+                          show: true,
+                          x: e.clientX + 10,
+                          y: e.clientY - 10,
+                          content: \`<div><strong>\${source.name}</strong><br/>Visit \${visitIndex + 1}<br/>Segment: \${flow.from || flow.to}<br/>Value: \${flow.value}</div>\`
+                        });
+                      },
+                      onMouseLeave: () => {
+                        setHoveredNode(null);
+                        setTooltip({ show: false, x: 0, y: 0, content: '' });
+                      },
+                      className: "cursor-pointer transition-all duration-300"
+                    }),
+                    flowIdx > 0 && React.createElement('line', {
+                      key: "line",
+                      x1: pos.x,
+                      y1: currentY,
+                      x2: pos.x + visitWidth,
+                      y2: currentY,
+                      stroke: "rgba(255,255,255,0.1)",
+                      strokeWidth: "0.5"
+                    })
+                  ]);
+                  
+                  currentY += segmentHeight + segmentGap;
+                  return segment;
+                }),
+                
+                React.createElement('text', {
+                  key: "total-text",
+                  x: pos.x + visitWidth / 2,
+                  y: pos.y + pos.height / 2,
+                  textAnchor: "middle",
+                  dy: "0.35em",
+                  fontSize: "16",
+                  fill: "white",
+                  fontWeight: "600",
+                  style: { pointerEvents: 'none' }
+                }, value),
+                
+                flowsToUse.length > 1 && React.createElement('text', {
+                  key: "debug-text",
+                  x: pos.x + visitWidth - 5,
+                  y: pos.y + 10,
+                  textAnchor: "end",
+                  fontSize: "8",
+                  fill: "yellow",
+                  style: { pointerEvents: 'none' }
+                }, flowsToUse.length)
+              ]);
+            }).filter(Boolean)
+          )
+        ])
+      ])
+    ]);
+  };`;
+  
+  const htmlTemplate = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Funnel & User Journey Charts - Auto Generated</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: #111827;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+        
+        // Sales Funnel Component
+        ${salesFunnelCode}
+        
+        // User Journey Component  
+        ${userJourneyCode}
+        
+        // Main App
+        const App = () => {
+          const [activeTab, setActiveTab] = useState('sales-funnel');
+          
+          return React.createElement('div', { className: "min-h-screen bg-gray-900" }, [
+            React.createElement('div', { 
+              key: "nav",
+              className: "bg-gray-800 shadow-lg border-b border-gray-700" 
+            }, 
+              React.createElement('div', { className: "max-w-7xl mx-auto px-4" },
+                React.createElement('div', { className: "flex space-x-8 justify-center py-4" }, [
+                  React.createElement('button', {
+                    key: "sales-tab",
+                    onClick: () => setActiveTab('sales-funnel'),
+                    className: \`py-4 px-6 text-sm font-medium border-b-2 transition-colors \${
+                      activeTab === 'sales-funnel'
+                        ? 'border-blue-500 text-blue-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-300'
+                    }\`
+                  }, "Sales Funnel"),
+                  React.createElement('button', {
+                    key: "journey-tab",
+                    onClick: () => setActiveTab('user-journey'),
+                    className: \`py-4 px-6 text-sm font-medium border-b-2 transition-colors \${
+                      activeTab === 'user-journey'
+                        ? 'border-blue-500 text-blue-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-300'
+                    }\`
+                  }, "User Journey")
+                ])
+              )
+            ),
+            React.createElement('div', { 
+              key: "content",
+              className: "max-w-7xl mx-auto p-4" 
+            }, 
+              activeTab === 'sales-funnel' 
+                ? React.createElement(SalesFunnel, { key: "sales-funnel" })
+                : React.createElement(UserJourney, { key: "user-journey" })
+            )
+          ]);
+        };
+        
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+    </script>
+</body>
+</html>`;
+
+  // Escribir el archivo HTML
+  const outputPath = path.join(__dirname, 'funnel-charts-auto-generated.html');
+  fs.writeFileSync(outputPath, htmlTemplate);
+  
+  console.log('✅ HTML file generated successfully!');
+  console.log(`📁 Location: ${outputPath}`);
+  console.log('🚀 You can now share this file with your colleagues!');
+  
+  return outputPath;
+};
+
+// Ejecutar si se llama directamente
+if (require.main === module) {
+  generateStandaloneHTML();
+}
+
+module.exports = { generateStandaloneHTML };
