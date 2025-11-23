@@ -205,64 +205,71 @@ const UserJourney = () => {
   };
 
   const renderSankeyDiagram = () => {
-    const svgWidth = 1200;
-    const svgHeight = 600;
-    const visitWidth = 120;
-    const visitSpacing = 220;
-    const visits = ['visit1', 'visit2', 'visit3', 'visit4'];
+    const svgWidth = 1400;
+    const svgHeight = 700;
+    const visitWidth = 160;
+    const visitSpacing = 280;
+    const nodeHeight = 20;
+    const nodeSpacing = 30;
 
-    // Mejor distribución del espacio
-    const topMargin = 60;
+    const visits = ['visit1', 'visit2', 'visit3', 'visit4'];
+    const maxTotalByVisit = visits.map(visit => 
+      Math.max(...sources.map(source => totals[visit][source.name] || 0))
+    );
+    const globalMax = Math.max(...maxTotalByVisit);
+
+    // Escalado ajustado: calcular factor de reducción global para que todo quepa
+    const topMargin = 80;
     const bottomMargin = 40;
     const availableHeight = svgHeight - topMargin - bottomMargin;
-    const minNodeHeight = 20;
-    const nodeGap = 12;
+    const minNodeHeight = 10;
+    const minGap = 6;
+    const totalGaps = minGap * (sources.length - 1);
+    const heightForNodes = availableHeight - totalGaps;
     
-    // Calcular total por visita para escalado proporcional
-    const visitTotals = visits.map(visit => 
-      sources.reduce((sum, source) => sum + (totals[visit][source.name] || 0), 0)
+    // Encontrar el valor individual máximo global
+    const globalMaxValue = Math.max(
+      ...['visit1', 'visit2', 'visit3', 'visit4'].flatMap(visit =>
+        sources.map(s => totals[visit][s.name] || 0)
+      )
     );
-    const maxVisitTotal = Math.max(...visitTotals);
+    
+    // Calcular escalado proporcional puro para cada columna
+    const columnScales = ['visit1', 'visit2', 'visit3', 'visit4'].map(visit => {
+      const sourceValues = sources.map(s => totals[visit][s.name] || 0);
+      const pureHeights = sourceValues.map(v => v === 0 ? 0 : Math.max(minNodeHeight, (v / globalMaxValue) * heightForNodes));
+      const totalHeight = pureHeights.reduce((sum, h) => sum + h, 0);
+      return { visit, totalHeight, pureHeights };
+    });
+    
+    // Encontrar la columna que más se excede y calcular factor de reducción
+    const maxTotalHeight = Math.max(...columnScales.map(col => col.totalHeight));
+    const reductionFactor = maxTotalHeight > heightForNodes ? heightForNodes / maxTotalHeight : 1;
     
     const getNodePosition = (visitIndex, sourceIndex, value) => {
-      const x = 100 + visitIndex * visitSpacing;
+      const x = 180 + visitIndex * visitSpacing;
+      const visit = visits[visitIndex];
+      const columnScale = columnScales[visitIndex];
       
-      // Escalado proporcional basado en el total de la visita
-      const visitTotal = visitTotals[visitIndex];
-      const scaleFactor = visitTotal > 0 ? availableHeight / maxVisitTotal : 0;
+      // Aplicar factor de reducción a las alturas proporcionales
+      const adjustedHeights = columnScale.pureHeights.map(h => h * reductionFactor);
       
-      // Calcular alturas proporcionales para esta visita
-      const sourceValues = sources.map(s => totals[visits[visitIndex]][s.name] || 0);
-      const nonZeroValues = sourceValues.filter(v => v > 0);
-      const totalNonZeroGaps = Math.max(0, nonZeroValues.length - 1) * nodeGap;
-      const heightForNodes = availableHeight * (visitTotal / maxVisitTotal) - totalNonZeroGaps;
-      
-      const nodeHeights = sourceValues.map(v => {
-        if (v === 0) return 0;
-        return Math.max(minNodeHeight, (v / visitTotal) * heightForNodes);
-      });
-      
-      // Centrar verticalmente los nodos de esta visita
-      const totalUsedHeight = nodeHeights.reduce((sum, h) => sum + h, 0) + 
-                             (nodeHeights.filter(h => h > 0).length - 1) * nodeGap;
-      const startY = topMargin + (availableHeight - totalUsedHeight) / 2;
-      
-      // Calcular Y para este nodo específico
-      let y = startY;
+      // Calcular Y para este nodo
+      let y = topMargin;
       for (let i = 0; i < sourceIndex; i++) {
-        if (nodeHeights[i] > 0) {
-          y += nodeHeights[i] + nodeGap;
-        }
+        y += adjustedHeights[i] + minGap;
       }
       
       return { 
         x, 
         y, 
-        height: nodeHeights[sourceIndex],
-        visitTotal,
-        maxVisitTotal,
-        nodeHeights,
-        startY
+        height: adjustedHeights[sourceIndex], 
+        nodeHeights: adjustedHeights, 
+        minGap, 
+        topMargin, 
+        globalMax: globalMaxValue, 
+        availableHeight: heightForNodes,
+        reductionFactor
       };
     };
 
@@ -274,26 +281,28 @@ const UserJourney = () => {
         // Usar la escala de nodos para los flujos
         const fromPos = getNodePosition(fromVisitIndex, fromSourceIndex, totals[visits[fromVisitIndex]][flow.from]);
         const toPos = getNodePosition(toVisitIndex, toSourceIndex, totals[visits[toVisitIndex]][flow.to]);
-
-        // Calcular altura del flujo basada en el valor proporcional
-        const flowHeight = Math.max(1, (flow.value / fromPos.visitTotal) * fromPos.height * 0.8);
+        const fromValue = totals[visits[fromVisitIndex]][flow.from];
+        const toValue = totals[visits[toVisitIndex]][flow.to];
+        // Escalado ajustado: aplicar el mismo factor de reducción a los flujos
+        const globalMax = fromPos.globalMax;
+        const availableHeight = fromPos.availableHeight;
+        const reductionFactor = fromPos.reductionFactor;
+        const flowHeight = Math.max(2, (flow.value / globalMax) * availableHeight * reductionFactor);
         const color = sources.find(s => s.name === flow.from)?.color || '#ccc';
         // Calcular offset Y para múltiples flujos desde el mismo nodo
-        // Calcular posiciones Y de inicio y fin del flujo
         const fromFlows = flowData.filter(f => f.from === flow.from);
         const flowIndex = fromFlows.findIndex(f => f.to === flow.to);
         const previousFlowsHeight = fromFlows.slice(0, flowIndex).reduce((sum, f) => {
-          return sum + Math.max(1, (f.value / fromPos.visitTotal) * fromPos.height * 0.8);
+          return sum + Math.max(2, (f.value / globalMax) * availableHeight * reductionFactor);
         }, 0);
-        const fromY = fromPos.y + fromPos.height * 0.1 + previousFlowsHeight;
-        
-        // Para el destino
+        const fromY = fromPos.y + previousFlowsHeight;
+        // Para el destino, hay que sumar los flujos previos que llegan a ese destino
         const toFlows = flowData.filter(f => f.to === flow.to);
         const toFlowIndex = toFlows.findIndex(f => f.from === flow.from);
         const previousToFlowsHeight = toFlows.slice(0, toFlowIndex).reduce((sum, f) => {
-          return sum + Math.max(1, (f.value / toPos.visitTotal) * toPos.height * 0.8);
+          return sum + Math.max(2, (f.value / globalMax) * availableHeight * reductionFactor);
         }, 0);
-        const toY = toPos.y + toPos.height * 0.1 + previousToFlowsHeight;
+        const toY = toPos.y + previousToFlowsHeight;
         const midX = (fromPos.x + visitWidth + toPos.x) / 2;
         const pathData = `
           M ${fromPos.x + visitWidth} ${fromY}
@@ -367,7 +376,7 @@ const UserJourney = () => {
         {renderFlows(journeyData.visit2_to_visit3, 1, 2)}
         {renderFlows(journeyData.visit3_to_visit4, 2, 3)}
         
-        {/* Nodos simplificados y limpios */}
+        {/* Nodos */}
         {visits.map((visit, visitIndex) => 
           sources.map((source, sourceIndex) => {
             const value = totals[visit][source.name] || 0;
@@ -377,24 +386,35 @@ const UserJourney = () => {
             
             // Determinar si este nodo está en una journey resaltada
             let isInHighlightedJourney = false;
-            let nodeOpacity = 0.85;
-            
             if (hoveredNode) {
-              if (hoveredNode.visitIndex === visitIndex && hoveredNode.sourceName === source.name) {
-                nodeOpacity = 1.0; // Nodo seleccionado
-              } else {
-                const journeys = findJourneysForNode(hoveredNode.visitIndex, hoveredNode.sourceName);
-                isInHighlightedJourney = journeys.some(journey => {
-                  const currentStep = journey[visitIndex];
-                  return currentStep && currentStep.source === source.name;
-                });
-                nodeOpacity = isInHighlightedJourney ? 0.9 : 0.2;
-              }
+              const journeys = findJourneysForNode(hoveredNode.visitIndex, hoveredNode.sourceName);
+              isInHighlightedJourney = journeys.some(journey => {
+                const step = journey[visitIndex];
+                return step && step.source === source.name;
+              });
             }
             
+            let nodeOpacity = 0.8;
+            if (hoveredNode) {
+              if (hoveredNode.visitIndex === visitIndex && hoveredNode.sourceName === source.name) {
+                nodeOpacity = 1.0; // Nodo hover
+              } else if (isInHighlightedJourney) {
+                nodeOpacity = 0.9; // Nodos en journeys resaltadas
+              } else {
+                nodeOpacity = 0.2; // Nodos difuminados
+              }
+            }
+
+            const handleNodeMouseEnter = () => {
+              setHoveredNode({ visitIndex, sourceName: source.name });
+            };
+
+            const handleNodeMouseLeave = () => {
+              setHoveredNode(null);
+            };
+
             return (
               <g key={`node-${visitIndex}-${sourceIndex}`}>
-                {/* Nodo principal */}
                 <rect
                   x={pos.x}
                   y={pos.y}
@@ -402,38 +422,23 @@ const UserJourney = () => {
                   height={pos.height}
                   fill={source.color}
                   opacity={nodeOpacity}
-                  rx={6}
-                  stroke={hoveredNode?.visitIndex === visitIndex && hoveredNode?.sourceName === source.name ? '#ffffff' : 'none'}
-                  strokeWidth={2}
-                  onMouseEnter={() => setHoveredNode({ visitIndex, sourceName: source.name })}
-                  onMouseLeave={() => setHoveredNode(null)}
+                  rx={4}
+                  onMouseEnter={handleNodeMouseEnter}
+                  onMouseLeave={handleNodeMouseLeave}
                   className="cursor-pointer transition-all duration-300"
                 />
-                
-                {/* Texto del valor */}
                 <text
                   x={pos.x + visitWidth / 2}
                   y={pos.y + pos.height / 2}
                   textAnchor="middle"
                   dy="0.35em"
-                  fontSize="14"
+                  fontSize="12"
                   fill="white"
-                  fontWeight="700"
+                  fontWeight="600"
                   style={{ pointerEvents: 'none' }}
                 >
                   {value}
                 </text>
-                
-                {/* Sombra interior para dar profundidad */}
-                <rect
-                  x={pos.x}
-                  y={pos.y}
-                  width={visitWidth}
-                  height={4}
-                  fill="rgba(255,255,255,0.2)"
-                  rx={6}
-                  style={{ pointerEvents: 'none' }}
-                />
               </g>
             );
           })
@@ -443,10 +448,10 @@ const UserJourney = () => {
         {['Visit 1', 'Visit 2', 'Visit 3', 'Visit 4'].map((label, index) => (
           <text
             key={`visit-label-${index}`}
-            x={100 + index * visitSpacing + visitWidth / 2}
-            y={40}
+            x={180 + index * visitSpacing + visitWidth / 2}
+            y={50}
             textAnchor="middle"
-            fontSize="16"
+            fontSize="18"
             fill="#E0E0E0"
             fontWeight="600"
           >
@@ -457,16 +462,15 @@ const UserJourney = () => {
         {/* Labels de fuentes - alineados con los nodos de la primera visita */}
         {sources.map((source, index) => {
           const nodePos = getNodePosition(0, index, totals.visit1[source.name]);
-          if (nodePos.height === 0) return null;
           const centerY = nodePos.y + nodePos.height / 2;
           return (
             <text
               key={`source-label-${index}`}
-              x={85}
+              x={165}
               y={centerY + 5}
               textAnchor="end"
-              fontSize="13"
-              fill="#B0B0B0"
+              fontSize="15"
+              fill="#A0A0A0"
               fontWeight="500"
             >
               {source.name}
@@ -503,10 +507,11 @@ const UserJourney = () => {
         <div className="overflow-x-auto pb-4">
           <div 
             style={{ 
-              minWidth: '1200px',
-              display: 'flex',
-              justifyContent: 'center',
-              paddingBottom: '40px',
+              minWidth: '1500px',
+              overflowY: 'auto',
+              maxHeight: '1100px',
+              paddingLeft: '40px',
+              paddingBottom: '80px',
             }}
           >
             {renderSankeyDiagram()}
