@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 const UserJourney = () => {
   const [hoveredFlow, setHoveredFlow] = useState(null);
+  const [activeNodes, setActiveNodes] = useState(new Set()); // Múltiples nodos activos por click
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: '' });
 
@@ -85,6 +86,56 @@ const UserJourney = () => {
     ]
   };
 
+  // Intent Scores realistas por combinación visit + source
+  const intentScores = {
+    visit1: {
+      'Facebook': 8.5,    // Nuevos usuarios, score bajo-medio
+      'Instagram': 12.3,  // Usuarios más jóvenes, mayor engagement
+      'Google Ads': 18.7, // Alta intención, pagaron por click
+      'Direct': 25.2      // Usuarios que ya conocen la marca
+    },
+    visit2: {
+      'Facebook': 15.8,   // Ya mostraron interés regresando
+      'Instagram': 19.4,  // Engagement más profundo
+      'Google Ads': 24.1, // Muy alta intención
+      'Direct': 28.9      // Usuarios muy comprometidos
+    },
+    visit3: {
+      'Facebook': 21.2,   // Usuarios muy engaged
+      'Instagram': 23.7,  // Alto commitment
+      'Google Ads': 26.8, // Casi listos para comprar
+      'Direct': 29.5      // Usuarios premium
+    },
+    visit4: {
+      'Facebook': 24.1,   // Super usuarios
+      'Instagram': 26.3,  // Usuarios fieles
+      'Google Ads': 28.4, // Ready to buy
+      'Direct': 30.0      // Máximo score
+    }
+  };
+
+  // Función para convertir intent score a color (azul bajo → verde alto)
+  const getColorByIntentScore = (score, isShadow = false) => {
+    // Normalizar score de 0-30 a 0-1
+    const normalized = Math.max(0, Math.min(1, score / 30));
+    
+    if (isShadow) {
+      // Modo shadow: grises suaves
+      const intensity = Math.round(100 + normalized * 60); // 100-160 range
+      return `rgb(${intensity}, ${intensity}, ${intensity})`;
+    }
+    
+    // Modo normal: interpolación de azul (#1E40AF) a verde (#059669)
+    const blue = { r: 30, g: 64, b: 175 };
+    const green = { r: 5, g: 150, b: 105 };
+    
+    const r = Math.round(blue.r + (green.r - blue.r) * normalized);
+    const g = Math.round(blue.g + (green.g - blue.g) * normalized);
+    const b = Math.round(blue.b + (green.b - blue.b) * normalized);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
   // Calcular totales por visita y fuente
   const calculateTotals = () => {
     const totals = {
@@ -131,78 +182,35 @@ const UserJourney = () => {
   const findJourneysForNode = (visitIndex, sourceName) => {
     const journeys = [];
     
-    if (visitIndex === 0) {
-      // Para Visit 1, encontrar todas las journeys que empiezan aquí
-      const visit1Flows = journeyData.visit1_to_visit2.filter(f => f.from === sourceName);
-      visit1Flows.forEach(flow1 => {
-        const visit2Flows = journeyData.visit2_to_visit3.filter(f => f.from === flow1.to);
-        visit2Flows.forEach(flow2 => {
-          const visit3Flows = journeyData.visit3_to_visit4.filter(f => f.from === flow2.to);
-          visit3Flows.forEach(flow3 => {
-            journeys.push([
-              { visit: 0, source: sourceName },
-              { visit: 1, source: flow1.to },
-              { visit: 2, source: flow2.to },
-              { visit: 3, source: flow3.to }
-            ]);
-          });
-        });
-      });
-    } else if (visitIndex === 1) {
-      // Para Visit 2, encontrar journeys que pasan por aquí
-      const visit1Flows = journeyData.visit1_to_visit2.filter(f => f.to === sourceName);
-      visit1Flows.forEach(flow1 => {
-        const visit2Flows = journeyData.visit2_to_visit3.filter(f => f.from === sourceName);
-        visit2Flows.forEach(flow2 => {
-          const visit3Flows = journeyData.visit3_to_visit4.filter(f => f.from === flow2.to);
-          visit3Flows.forEach(flow3 => {
-            journeys.push([
-              { visit: 0, source: flow1.from },
-              { visit: 1, source: sourceName },
-              { visit: 2, source: flow2.to },
-              { visit: 3, source: flow3.to }
-            ]);
-          });
-        });
-      });
-    } else if (visitIndex === 2) {
-      // Para Visit 3, encontrar journeys que pasan por aquí
-      const visit2Flows = journeyData.visit2_to_visit3.filter(f => f.to === sourceName);
-      visit2Flows.forEach(flow2 => {
-        const visit1Flows = journeyData.visit1_to_visit2.filter(f => f.to === flow2.from);
-        visit1Flows.forEach(flow1 => {
-          const visit3Flows = journeyData.visit3_to_visit4.filter(f => f.from === sourceName);
-          visit3Flows.forEach(flow3 => {
-            journeys.push([
-              { visit: 0, source: flow1.from },
-              { visit: 1, source: flow2.from },
-              { visit: 2, source: sourceName },
-              { visit: 3, source: flow3.to }
-            ]);
-          });
-        });
-      });
-    } else if (visitIndex === 3) {
-      // Para Visit 4, encontrar todas las journeys que terminan aquí
-      const visit3Flows = journeyData.visit3_to_visit4.filter(f => f.to === sourceName);
-      visit3Flows.forEach(flow3 => {
-        const visit2Flows = journeyData.visit2_to_visit3.filter(f => f.to === flow3.from);
-        visit2Flows.forEach(flow2 => {
-          const visit1Flows = journeyData.visit1_to_visit2.filter(f => f.to === flow2.from);
-          visit1Flows.forEach(flow1 => {
-            journeys.push([
-              { visit: 0, source: flow1.from },
-              { visit: 1, source: flow2.from },
-              { visit: 2, source: flow3.from },
-              { visit: 3, source: sourceName }
-            ]);
-          });
-        });
-      });
-    }
+    // Construir todas las journeys posibles desde Visit 1 hasta Visit 4
+    const allJourneys = [];
     
-    return journeys;
+    // Primero construir todas las journeys completas
+    journeyData.visit1_to_visit2.forEach(flow1 => {
+      journeyData.visit2_to_visit3
+        .filter(flow2 => flow2.from === flow1.to)
+        .forEach(flow2 => {
+          journeyData.visit3_to_visit4
+            .filter(flow3 => flow3.from === flow2.to)
+            .forEach(flow3 => {
+              allJourneys.push([
+                { visit: 0, source: flow1.from },
+                { visit: 1, source: flow1.to },
+                { visit: 2, source: flow2.to },
+                { visit: 3, source: flow3.to }
+              ]);
+            });
+        });
+    });
+    
+    // Filtrar journeys que pasan por el nodo especificado
+    return allJourneys.filter(journey => {
+      const step = journey[visitIndex];
+      return step && step.source === sourceName;
+    });
   };
+
+
 
   const renderSankeyDiagram = () => {
     const svgWidth = 1400;
@@ -299,7 +307,9 @@ const UserJourney = () => {
         const availableHeight = fromPos.availableHeight;
         const reductionFactor = fromPos.reductionFactor;
         const flowHeight = Math.max(2, (flow.value / globalMax) * availableHeight * reductionFactor);
-        const color = sources.find(s => s.name === flow.from)?.color || '#ccc';
+        const visitKey = `visit${fromVisitIndex + 1}`;
+        const intentScore = intentScores[visitKey]?.[flow.from] || 0;
+        const color = getColorByIntentScore(intentScore);
         // Calcular offset Y para múltiples flujos desde el mismo nodo
         const fromFlows = flowData.filter(f => f.from === flow.from);
         const flowIndex = fromFlows.findIndex(f => f.to === flow.to);
@@ -325,11 +335,13 @@ const UserJourney = () => {
         const isHovered = hoveredFlow === `${fromVisitIndex}-${toVisitIndex}-${index}`;
         const handleMouseEnter = (e) => {
           setHoveredFlow(`${fromVisitIndex}-${toVisitIndex}-${index}`);
+          const fromScore = intentScores[`visit${fromVisitIndex + 1}`]?.[flow.from] || 0;
+          const toScore = intentScores[`visit${toVisitIndex + 1}`]?.[flow.to] || 0;
           setTooltip({
             show: true,
             x: e.clientX,
             y: e.clientY - 10,
-            content: `${flow.from} → ${flow.to}: ${flow.value} users`
+            content: `${flow.from} → ${flow.to}: ${flow.value} users\nFrom Score: ${fromScore} | To Score: ${toScore}`
           });
         };
         const handleMouseLeave = () => {
@@ -345,8 +357,10 @@ const UserJourney = () => {
             }));
           }
         };
-        // Determinar si este flujo está en una journey resaltada
+        // Determinar si este flujo está en una journey resaltada (hover o múltiples clicks)
         let isInHighlightedJourney = false;
+        
+        // Revisar hover
         if (hoveredNode) {
           const journeys = findJourneysForNode(hoveredNode.visitIndex, hoveredNode.sourceName);
           isInHighlightedJourney = journeys.some(journey => {
@@ -356,10 +370,26 @@ const UserJourney = () => {
           });
         }
         
+        // Revisar nodos activos (múltiples simultáneos)
+        if (!isInHighlightedJourney && activeNodes.size > 0) {
+          for (const activeNodeKey of activeNodes) {
+            const journeys = findJourneysForNode(activeNodeKey.visitIndex, activeNodeKey.sourceName);
+            isInHighlightedJourney = journeys.some(journey => {
+              const fromStep = journey[fromVisitIndex];
+              const toStep = journey[toVisitIndex];
+              return fromStep && toStep && fromStep.source === flow.from && toStep.source === flow.to;
+            });
+            if (isInHighlightedJourney) break;
+          }
+        }
+        
+        const shouldUseFlowShadow = !isHovered && (!hoveredNode && activeNodes.size === 0) || (!isInHighlightedJourney && (hoveredNode || activeNodes.size > 0));
+        const flowColor = getColorByIntentScore(intentScore, shouldUseFlowShadow);
+        
         let flowOpacity = 0.4;
         if (isHovered) {
           flowOpacity = 0.9;
-        } else if (hoveredNode) {
+        } else if (hoveredNode || activeNodes.size > 0) {
           flowOpacity = isInHighlightedJourney ? 0.8 : 0.1;
         }
 
@@ -367,7 +397,7 @@ const UserJourney = () => {
           <path
             key={`flow-${fromVisitIndex}-${toVisitIndex}-${index}`}
             d={pathData}
-            fill={color}
+            fill={flowColor}
             opacity={flowOpacity}
             stroke={isHovered ? 'white' : 'none'}
             strokeWidth={isHovered ? 1 : 0}
@@ -395,8 +425,10 @@ const UserJourney = () => {
             
             const pos = getNodePosition(visitIndex, sourceIndex, value);
             
-            // Determinar si este nodo está en una journey resaltada
+            // Determinar si este nodo está en una journey resaltada (hover o múltiples clicks)
             let isInHighlightedJourney = false;
+            
+            // Revisar hover
             if (hoveredNode) {
               const journeys = findJourneysForNode(hoveredNode.visitIndex, hoveredNode.sourceName);
               isInHighlightedJourney = journeys.some(journey => {
@@ -405,10 +437,28 @@ const UserJourney = () => {
               });
             }
             
+            // Revisar nodos activos (múltiples simultáneos)
+            if (!isInHighlightedJourney && activeNodes.size > 0) {
+              for (const activeNodeKey of activeNodes) {
+                const journeys = findJourneysForNode(activeNodeKey.visitIndex, activeNodeKey.sourceName);
+                isInHighlightedJourney = journeys.some(journey => {
+                  const step = journey[visitIndex];
+                  return step && step.source === source.name;
+                });
+                if (isInHighlightedJourney) break;
+              }
+            }
+            
+            const isCurrentlyHovered = hoveredNode && hoveredNode.visitIndex === visitIndex && hoveredNode.sourceName === source.name;
+            const isCurrentlyActive = Array.from(activeNodes).some(node => 
+              node.visitIndex === visitIndex && node.sourceName === source.name
+            );
+            const shouldUseShadow = !isCurrentlyActive && !isCurrentlyHovered && !isInHighlightedJourney;
+            
             let nodeOpacity = 0.8;
-            if (hoveredNode) {
-              if (hoveredNode.visitIndex === visitIndex && hoveredNode.sourceName === source.name) {
-                nodeOpacity = 1.0; // Nodo hover
+            if (hoveredNode || activeNodes.size > 0) {
+              if (isCurrentlyHovered || isCurrentlyActive) {
+                nodeOpacity = 1.0; // Nodo hover o activo
               } else if (isInHighlightedJourney) {
                 nodeOpacity = 0.9; // Nodos en journeys resaltadas
               } else {
@@ -416,12 +466,50 @@ const UserJourney = () => {
               }
             }
 
-            const handleNodeMouseEnter = () => {
+            // Click handler para multi-selección de nodos
+            const handleNodeClick = () => {
+              const nodeKey = `${visitIndex}-${source.name}`;
+              setActiveNodes(prev => {
+                const newSet = new Set(prev);
+                const existingNode = Array.from(prev).find(node => 
+                  node.visitIndex === visitIndex && node.sourceName === source.name
+                );
+                
+                if (existingNode) {
+                  newSet.delete(existingNode);
+                } else {
+                  newSet.add({ visitIndex, sourceName: source.name });
+                }
+                
+                return newSet;
+              });
+            };
+
+            const handleNodeMouseEnter = (e) => {
               setHoveredNode({ visitIndex, sourceName: source.name });
+              const visitKey = visits[visitIndex];
+              const score = intentScores[visitKey][source.name];
+              setTooltip({
+                show: true,
+                x: e.clientX,
+                y: e.clientY - 10,
+                content: `${source.name} - Visit ${visitIndex + 1}\nUsers: ${value}\nIntent Score: ${score}\n\nClick to highlight user journeys`
+              });
             };
 
             const handleNodeMouseLeave = () => {
               setHoveredNode(null);
+              setTooltip({ show: false, x: 0, y: 0, content: '' });
+            };
+
+            const handleNodeMouseMove = (e) => {
+              if (hoveredNode && hoveredNode.visitIndex === visitIndex && hoveredNode.sourceName === source.name) {
+                setTooltip(prev => ({
+                  ...prev,
+                  x: e.clientX,
+                  y: e.clientY - 10
+                }));
+              }
             };
 
             return (
@@ -431,12 +519,16 @@ const UserJourney = () => {
                   y={pos.y}
                   width={visitWidth}
                   height={pos.height}
-                  fill={source.color}
+                  fill={getColorByIntentScore(intentScores[visits[visitIndex]][source.name], shouldUseShadow)}
                   opacity={nodeOpacity}
                   rx={4}
+                  onClick={handleNodeClick}
                   onMouseEnter={handleNodeMouseEnter}
                   onMouseLeave={handleNodeMouseLeave}
+                  onMouseMove={handleNodeMouseMove}
                   className="cursor-pointer transition-all duration-300"
+                  stroke={isCurrentlyActive ? "#FFFFFF" : "#1F2937"}
+                  strokeWidth={isCurrentlyActive ? "3" : "1"}
                 />
                 <text
                   x={pos.x + visitWidth / 2}
@@ -499,19 +591,31 @@ const UserJourney = () => {
       </h1>
       
       <div className="bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-700">
-        {/* Legend */}
-        <div className="flex justify-center gap-12 mb-8">
-          {sources.map(source => (
-            <div key={source.name} className="flex items-center gap-2">
-              <div 
-                className="w-4 h-4 rounded" 
-                style={{ backgroundColor: source.color }}
-              />
-              <span className="text-sm font-medium text-gray-300">
-                {source.name}
-              </span>
+        {/* Legend - Intent Score Scale */}
+        <div className="flex justify-center items-center gap-8 mb-8">
+          <span className="text-sm font-medium text-gray-300">Intent Score:</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: getColorByIntentScore(5, false) }}></div>
+              <span className="text-sm text-gray-400">Low (0-10)</span>
             </div>
-          ))}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: getColorByIntentScore(15, false) }}></div>
+              <span className="text-sm text-gray-400">Medium (10-20)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: getColorByIntentScore(25, false) }}></div>
+              <span className="text-sm text-gray-400">High (20-30)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span>Sources:</span>
+            {sources.map((source, idx) => (
+              <span key={source.name}>
+                {source.name}{idx < sources.length - 1 ? ' • ' : ''}
+              </span>
+            ))}
+          </div>
         </div>
         
         {/* Sankey Diagram */}
@@ -531,8 +635,9 @@ const UserJourney = () => {
         
         {/* Description */}
         <div className="mt-8 text-center text-gray-400 text-sm">
-          <p>This diagram shows how users flow between different traffic sources across multiple visits.</p>
-          <p>Each visit shows progressive dilution as fewer users return for subsequent visits.</p>
+          <p>This diagram shows user journey flows with <strong>Intent Score coloring</strong> - from blue (low intent) to green (high intent).</p>
+          <p><strong>Click on any node</strong> to illuminate the entire visit column and reveal the vibrant colors. Click again to deselect.</p>
+          <p>Direct traffic and returning users show progressively higher intent scores across visits.</p>
         </div>
       </div>
       

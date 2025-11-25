@@ -1,8 +1,59 @@
 import React, { useState } from 'react';
 
 const SalesFunnel = () => {
-  const [hoveredSegment, setHoveredSegment] = useState(null);
+  const [activeStages, setActiveStages] = useState(new Set()); // Múltiples stages activos
+  const [hoveredSegment, setHoveredSegment] = useState(null); // Solo para tooltips
   const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: '' });
+
+  // Intent Scores realistas por stage y fuente
+  const intentScores = {
+    'Website Visits': {
+      'Facebook': 8.5,    // Usuarios casuales, bajo intent inicial
+      'Instagram': 12.3,  // Más engagement visual
+      'Google Ads': 18.7, // Búsqueda activa, mayor intent
+      'Organic': 25.2     // Usuarios que nos encontraron naturalmente
+    },
+    'Prospective Purchasers': {
+      'Facebook': 19.1,   // Han pasado el filtro, mayor intent
+      'Instagram': 22.4,  // Engagement más profundo
+      'Google Ads': 26.3, // Muy alta intención de compra
+      'Organic': 28.8     // Los más comprometidos
+    },
+    'Moderate Intent Users': {
+      'Facebook': 22.3,   // Usuarios con interés moderado
+      'Instagram': 24.1,  // Engagement consistente
+      'Google Ads': 27.2, // Búsquedas repetidas
+      'Organic': 29.1     // Visitantes recurrentes
+    },
+    'High Intent Users': {
+      'Facebook': 26.8,   // Los más convertidos de FB
+      'Instagram': 27.9,  // Instagram premium users
+      'Google Ads': 29.2, // Ready to buy
+      'Organic': 30.0     // Máximo score posible
+    }
+  };
+
+  // Función para convertir intent score a color (azul bajo → verde alto)
+  const getColorByIntentScore = (score, isShadow = false) => {
+    // Normalizar score de 0-30 a 0-1
+    const normalized = Math.max(0, Math.min(1, score / 30));
+    
+    if (isShadow) {
+      // Modo shadow: grises suaves
+      const intensity = Math.round(100 + normalized * 60); // 100-160 range
+      return `rgb(${intensity}, ${intensity}, ${intensity})`;
+    }
+    
+    // Modo normal: interpolación de azul (#1E40AF) a verde (#059669)
+    const blue = { r: 30, g: 64, b: 175 };
+    const green = { r: 5, g: 150, b: 105 };
+    
+    const r = Math.round(blue.r + (green.r - blue.r) * normalized);
+    const g = Math.round(blue.g + (green.g - blue.g) * normalized);
+    const b = Math.round(blue.b + (green.b - blue.b) * normalized);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  };
 
   // Datos del funnel por fuente de tráfico con variabilidad realista
   // Orgánico: menor volumen pero mejor calidad de conversión
@@ -29,12 +80,21 @@ const SalesFunnel = () => {
       ]
     },
     {
-      stage: 'Total Interest Score',
+      stage: 'Moderate Intent Users',
       sources: [
-        { name: 'Facebook', value: 680, color: '#FF9D3D' },     // 20% de interesados
-        { name: 'Instagram', value: 190, color: '#FFB366' },    // 15% de interesados
-        { name: 'Google Ads', value: 546, color: '#FFC699' },   // 30% de interesados
-        { name: 'Organic', value: 432, color: '#FFE0CC' }       // 45% de interesados - ¡Mejor!
+        { name: 'Facebook', value: 1190, color: '#FF9D3D' },    // 35% de prospects → moderate
+        { name: 'Instagram', value: 380, color: '#FFB366' },    // 30% de prospects → moderate
+        { name: 'Google Ads', value: 910, color: '#FFC699' },   // 50% de prospects → moderate
+        { name: 'Organic', value: 576, color: '#FFE0CC' }       // 60% de prospects → moderate
+      ]
+    },
+    {
+      stage: 'High Intent Users',
+      sources: [
+        { name: 'Facebook', value: 357, color: '#FF9D3D' },     // 30% de moderate → high
+        { name: 'Instagram', value: 95, color: '#FFB366' },     // 25% de moderate → high
+        { name: 'Google Ads', value: 455, color: '#FFC699' },   // 50% de moderate → high
+        { name: 'Organic', value: 346, color: '#FFE0CC' }       // 60% de moderate → high - ¡Mejor!
       ]
     }
   ];
@@ -47,10 +107,10 @@ const SalesFunnel = () => {
   // SVG para renderizar el funnel
   const renderFunnel = () => {
     const svgWidth = 1200; // Tamaño ajustado
-    const svgHeight = 400;
+    const svgHeight = 500; // Aumentado para labels superiores + 4 niveles
     const maxWidth = 700;
-    const startY = 20;
-    const stageHeight = 110;
+    const startY = 40; // Más espacio para las etiquetas de fuentes
+    const stageHeight = 105; // Ligeramente reducido para acomodar 4 niveles
 
     return (
       <svg width={svgWidth} height={svgHeight} className="mx-auto" viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
@@ -91,12 +151,32 @@ const SalesFunnel = () => {
                     const isHovered = hoveredSegment === `${stageIdx}-${sourceIdx}`;
                     const opacity = isHovered ? 1 : 0.85;
                     
+                    // Intent score y colores - iluminar toda la fila si el stage está activo
+                    const stageName = stage.stage;
+                    const intentScore = intentScores[stageName][source.name];
+                    const isStageActive = activeStages.has(stageIdx);
+                    const shouldUseShadow = !isStageActive;
+                    const segmentColor = getColorByIntentScore(intentScore, shouldUseShadow);
+                    
                     // Calcular porcentajes y datos para tooltip
                     const percentage = ((source.value / total) * 100).toFixed(1);
                     const stageNames = ['Website Visits', 'Prospective Purchasers', 'Total Interest Score'];
                     const conversionRate = stageIdx > 0 
                       ? ((source.value / funnelData[stageIdx - 1].sources[sourceIdx].value) * 100).toFixed(1)
                       : null;
+
+                    // Click handler para toggle stage completo (múltiples simultáneos)
+                    const handleClick = () => {
+                      setActiveStages(prev => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(stageIdx)) {
+                          newSet.delete(stageIdx);
+                        } else {
+                          newSet.add(stageIdx);
+                        }
+                        return newSet;
+                      });
+                    };
 
                     const handleMouseEnter = (e) => {
                       setHoveredSegment(`${stageIdx}-${sourceIdx}`);
@@ -107,7 +187,9 @@ const SalesFunnel = () => {
                             <div><span class="text-gray-300">Stage:</span> ${stageNames[stageIdx]}</div>
                             <div><span class="text-gray-300">Value:</span> <span class="font-semibold">${source.value.toLocaleString()}</span></div>
                             <div><span class="text-gray-300">% of Stage:</span> <span class="font-semibold">${percentage}%</span></div>
+                            <div><span class="text-gray-300">Intent Score:</span> <span class="font-semibold">${intentScore}</span></div>
                             ${conversionRate ? `<div><span class="text-gray-300">Conversion:</span> <span class="font-semibold">${conversionRate}%</span></div>` : ''}
+                            <div class="text-xs text-gray-500 mt-2">Click to highlight entire stage</div>
                           </div>
                         </div>
                       `;
@@ -134,35 +216,37 @@ const SalesFunnel = () => {
                       }
                     };
 
-                    // Para el último stage (Total Interest Score), usar rectángulo
-                    const shape = stageIdx === 2 ? (
+                    // Para el último stage (High Intent Users), usar rectángulo
+                    const shape = stageIdx === 3 ? (
                       <rect
                         key={`segment-${stageIdx}-${sourceIdx}`}
                         x={segX}
                         y={y}
                         width={segmentWidth}
                         height={stageHeight}
-                        fill={source.color}
+                        fill={segmentColor}
                         opacity={opacity}
+                        onClick={handleClick}
                         onMouseEnter={handleMouseEnter}
                         onMouseLeave={handleMouseLeave}
                         onMouseMove={handleMouseMove}
-                        className="cursor-pointer transition-opacity duration-200"
-                        stroke="#1F2937"
-                        strokeWidth="2"
+                        className="cursor-pointer transition-all duration-200"
+                        stroke={isStageActive ? "#FFFFFF" : "#2D3748"}
+                        strokeWidth={isStageActive ? "2" : "0.5"}
                       />
                     ) : (
                       <polygon
                         key={`segment-${stageIdx}-${sourceIdx}`}
                         points={`${segX},${y} ${segX + segmentWidth},${y} ${nextSegXPos + nextSegW},${y + stageHeight} ${nextSegXPos},${y + stageHeight}`}
-                        fill={source.color}
+                        fill={segmentColor}
                         opacity={opacity}
+                        onClick={handleClick}
                         onMouseEnter={handleMouseEnter}
                         onMouseLeave={handleMouseLeave}
                         onMouseMove={handleMouseMove}
-                        className="cursor-pointer transition-opacity duration-200"
-                        stroke="#1F2937"
-                        strokeWidth="2"
+                        className="cursor-pointer transition-all duration-200"
+                        stroke={isStageActive ? "#FFFFFF" : "#2D3748"}
+                        strokeWidth={isStageActive ? "2" : "0.5"}
                       />
                     );
                     
@@ -201,8 +285,41 @@ const SalesFunnel = () => {
           purchasers
         </text>
 
+        {/* Labels de fuentes encima del primer nivel */}
+        {(() => {
+          const firstStageData = funnelData[0];
+          const total = stageWidths[0].total;
+          const maxTotal = Math.max(...stageWidths.map(s => s.total));
+          const currentWidth = maxWidth * (total / maxTotal);
+          const x = (svgWidth - currentWidth) / 2;
+          let currentSegX = x;
+          
+          return firstStageData.sources.map((source, sourceIdx) => {
+            const segmentWidth = (source.value / total) * currentWidth;
+            const labelX = currentSegX + segmentWidth / 2;
+            const labelY = startY - 15;
+            
+            // Actualizar posición para siguiente segmento
+            currentSegX += segmentWidth;
+            
+            return (
+              <text
+                key={`source-label-${sourceIdx}`}
+                x={labelX}
+                y={labelY}
+                textAnchor="middle"
+                fontSize="14"
+                fill="#E0E0E0"
+                fontWeight="600"
+              >
+                {source.name}
+              </text>
+            );
+          });
+        })()}
+
         {/* Leyendas alineadas con cada bloque */}
-        {['Website Visits', 'Prospective Purchasers', 'Total Interest Score'].map((label, idx) => {
+        {['Website Visits', 'Prospective Purchasers', 'Moderate Intent Users', 'High Intent Users'].map((label, idx) => {
           const labelY = startY + idx * stageHeight + stageHeight / 2;
           return (
             <text 
@@ -235,25 +352,25 @@ const SalesFunnel = () => {
           <div className="bg-gray-700 rounded-md p-4">
             <h4 className="font-semibold text-green-400 mb-2">🎯 Organic Traffic Quality</h4>
             <p className="text-gray-300">
-              Despite lowest volume (1,200 visits), organic traffic shows <strong>80% conversion to prospects</strong> and <strong>highest interest score</strong> - the highest quality traffic.
+              Despite lowest volume (1,200 visits), organic traffic shows <strong>Intent Score of 30.0</strong> in high intent users - the highest possible score with 60% conversion from moderate to high intent.
             </p>
           </div>
           <div className="bg-gray-700 rounded-md p-4">
             <h4 className="font-semibold text-blue-400 mb-2">💰 Google Ads Efficiency</h4>
             <p className="text-gray-300">
-              Google Ads delivers <strong>65% prospect conversion</strong> and <strong>strong interest scores</strong> from prospects - strong ROI for paid traffic.
+              Google Ads shows <strong>Intent Score progression from 18.7 to 29.2</strong> - excellent ROI with 50% conversion rate at each intent stage, delivering 455 high-intent users.
             </p>
           </div>
           <div className="bg-gray-700 rounded-md p-4">
-            <h4 className="font-semibold text-orange-400 mb-2">📱 Social Media Volume</h4>
+            <h4 className="font-semibold text-orange-400 mb-2">📊 Intent Segmentation</h4>
             <p className="text-gray-300">
-              Facebook brings highest volume (8,500 visits) but lower conversion rates. Instagram shows potential for improvement.
+              <strong>Moderate Intent:</strong> 3,056 users identified. <strong>High Intent:</strong> 1,253 premium users ready for conversion - clear segmentation for targeted campaigns.
             </p>
           </div>
           <div className="bg-gray-700 rounded-md p-4">
-            <h4 className="font-semibold text-purple-400 mb-2">🚀 Optimization Opportunity</h4>
+            <h4 className="font-semibold text-purple-400 mb-2">🚀 Interactive Analysis</h4>
             <p className="text-gray-300">
-              Focus on <strong>scaling organic content</strong> and <strong>improving social media quality</strong> to maximize interest scores.
+              <strong>Click on any segment</strong> to illuminate the entire stage and reveal intent score colors (blue=low, green=high). Multiple stages can be active simultaneously.
             </p>
           </div>
         </div>
@@ -270,24 +387,27 @@ const SalesFunnel = () => {
 
       {/* Legend + Funnel en el mismo bloque */}
       <div className="bg-gray-800 rounded-lg p-8 shadow-2xl border border-gray-700">
-        {/* Legend - Línea recta */}
-        <div className="flex justify-center gap-12 mb-8">
-          {[
-            { name: 'Facebook', color: '#FF9D3D' },
-            { name: 'Instagram', color: '#FFB366' },
-            { name: 'Google Ads', color: '#FFC699' },
-            { name: 'Organic', color: '#FFE0CC' }
-          ].map(source => (
-            <div key={source.name} className="flex items-center gap-2">
-              <div 
-                className="w-4 h-4 rounded" 
-                style={{ backgroundColor: source.color }}
-              />
-              <span className="text-sm font-medium text-gray-300">
-                {source.name}
-              </span>
+        {/* Legend - Intent Score Scale */}
+        <div className="flex justify-center items-center gap-8 mb-8">
+          <span className="text-sm font-medium text-gray-300">Intent Score:</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: getColorByIntentScore(5, false) }}></div>
+              <span className="text-sm text-gray-400">Low (0-10)</span>
             </div>
-          ))}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: getColorByIntentScore(15, false) }}></div>
+              <span className="text-sm text-gray-400">Medium (10-20)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: getColorByIntentScore(25, false) }}></div>
+              <span className="text-sm text-gray-400">High (20-30)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span>Sources:</span>
+            <span>Facebook • Instagram • Google Ads • Organic</span>
+          </div>
         </div>
 
         {/* Funnel SVG */}
@@ -308,16 +428,16 @@ const SalesFunnel = () => {
             </tr>
           </thead>
           <tbody>
-            {['Website Visits', 'Prospective Purchasers', 'Total Interest Score'].map((stageName, idx) => (
+            {['Website Visits', 'Prospective Purchasers', 'Moderate Intent Users', 'High Intent Users'].map((stageName, idx) => (
               <tr key={idx} className="border-b border-gray-700 hover:bg-gray-700 transition-colors">
                 <td className="px-4 py-3 font-medium text-gray-300">{stageName}</td>
                 {funnelData[idx].sources.map((source, srcIdx) => (
                   <td key={srcIdx} className="px-4 py-3 text-center text-gray-400">
-                    {source.value}
+                    {source.value.toLocaleString()}
                   </td>
                 ))}
                 <td className="px-4 py-3 text-center font-semibold text-gray-200">
-                  {funnelData[idx].sources.reduce((sum, src) => sum + src.value, 0)}
+                  {funnelData[idx].sources.reduce((sum, src) => sum + src.value, 0).toLocaleString()}
                 </td>
               </tr>
             ))}
