@@ -231,8 +231,8 @@ const SalesFunnel = () => {
                         onMouseLeave={handleMouseLeave}
                         onMouseMove={handleMouseMove}
                         className="cursor-pointer transition-all duration-200"
-                        stroke={isStageActive ? "#FFFFFF" : "#2D3748"}
-                        strokeWidth={isStageActive ? "2" : "0.5"}
+                        stroke={isStageActive ? "#FFFFFF" : "none"}
+                        strokeWidth={isStageActive ? "2" : "0"}
                       />
                     ) : (
                       <polygon
@@ -245,8 +245,8 @@ const SalesFunnel = () => {
                         onMouseLeave={handleMouseLeave}
                         onMouseMove={handleMouseMove}
                         className="cursor-pointer transition-all duration-200"
-                        stroke={isStageActive ? "#FFFFFF" : "#2D3748"}
-                        strokeWidth={isStageActive ? "2" : "0.5"}
+                        stroke={isStageActive ? "#FFFFFF" : "none"}
+                        strokeWidth={isStageActive ? "2" : "0"}
                       />
                     );
                     
