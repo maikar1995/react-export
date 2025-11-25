@@ -608,14 +608,7 @@ const UserJourney = () => {
               <span className="text-sm text-gray-400">High (20-30)</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>Sources:</span>
-            {sources.map((source, idx) => (
-              <span key={source.name}>
-                {source.name}{idx < sources.length - 1 ? ' • ' : ''}
-              </span>
-            ))}
-          </div>
+
         </div>
         
         {/* Sankey Diagram */}

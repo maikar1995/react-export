@@ -231,8 +231,8 @@ const SalesFunnel = () => {
                         onMouseLeave={handleMouseLeave}
                         onMouseMove={handleMouseMove}
                         className="cursor-pointer transition-all duration-200"
-                        stroke={isStageActive ? "#FFFFFF" : "none"}
-                        strokeWidth={isStageActive ? "2" : "0"}
+                        stroke={isStageActive ? "#FFFFFF" : "#1F2937"}
+                        strokeWidth={isStageActive ? "2" : "0.1"}
                       />
                     ) : (
                       <polygon
@@ -245,8 +245,8 @@ const SalesFunnel = () => {
                         onMouseLeave={handleMouseLeave}
                         onMouseMove={handleMouseMove}
                         className="cursor-pointer transition-all duration-200"
-                        stroke={isStageActive ? "#FFFFFF" : "none"}
-                        strokeWidth={isStageActive ? "2" : "0"}
+                        stroke={isStageActive ? "#FFFFFF" : "#1F2937"}
+                        strokeWidth={isStageActive ? "2" : "0.1"}
                       />
                     );
                     
@@ -404,10 +404,7 @@ const SalesFunnel = () => {
               <span className="text-sm text-gray-400">High (20-30)</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>Sources:</span>
-            <span>Facebook • Instagram • Google Ads • Organic</span>
-          </div>
+
         </div>
 
         {/* Funnel SVG */}
